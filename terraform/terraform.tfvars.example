@@ -1,0 +1,6 @@
+# Copy and paste this file and add your own secrets to host your own version
+aws_region = "us-east-1"
+domain_name = "yourdomain.com"
+environment = "prod"
+db_username = "your_db_username"
+db_password = "your_secure_password_here"
