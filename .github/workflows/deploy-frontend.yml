@@ -1,0 +1,64 @@
+name: Deploy Frontend to S3
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/web/**"]
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: "apps/web/package-lock.json"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install dependencies
+        run: |
+          cd apps/web
+          npm ci
+
+      - name: Build Next.js app
+        run: |
+          cd apps/web
+          npm run build
+
+      - name: Export static files
+        run: |
+          cd apps/web
+          npm run export || npm run build
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync apps/web/out/ s3://stepexplorer-frontend-9i8w0q8o --delete --exact-timestamps
+
+      - name: Invalidate CloudFront
+        run: |
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='stepexplorer-frontend' || Aliases.Items[0]=='stepexplorer.com'].Id | [0]" --output text)
+          if [ "$DISTRIBUTION_ID" != "None" ] && [ "$DISTRIBUTION_ID" != "" ]; then
+            aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+            echo "✅ CloudFront cache invalidated for distribution: $DISTRIBUTION_ID"
+          else
+            echo "⚠️  CloudFront distribution not found, finding by domain..."
+            aws cloudfront list-distributions --query "DistributionList.Items[?DomainName=='dy4dywaqklyn2.cloudfront.net'].Id | [0]" --output text | xargs -I {} aws cloudfront create-invalidation --distribution-id {} --paths "/*"
+          fi
+
+      - name: Display deployment URLs
+        run: |
+          echo "🚀 Frontend deployed successfully!"
+          echo "📱 CloudFront URL: https://dy4dywaqklyn2.cloudfront.net"
+          echo "🌐 S3 URL: https://stepexplorer-frontend-9i8w0q8o.s3-website-us-east-1.amazonaws.com"

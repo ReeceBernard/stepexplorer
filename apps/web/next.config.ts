@@ -1,7 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: "export",
+  trailingSlash: true,
+  skipTrailingSlashRedirect: true,
+  distDir: "out",
+  images: {
+    unoptimized: true,
+  },
+  assetPrefix:
+    process.env.NODE_ENV === "production"
+      ? "https://dy4dywaqklyn2.cloudfront.net"
+      : "",
 };
 
 export default nextConfig;
