@@ -11,22 +11,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Get latest Amazon Linux 2 AMI
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-arm64-gp2"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
-
 # VPC
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
@@ -136,9 +120,9 @@ resource "aws_route_table_association" "private_b" {
   route_table_id = aws_route_table.private.id
 }
 
-# Security Group for ECS (Application)
-resource "aws_security_group" "ecs_sg" {
-  name_prefix = "stepexplorer-ecs-"
+# Security Group for Fargate Tasks
+resource "aws_security_group" "fargate_sg" {
+  name_prefix = "stepexplorer-fargate-"
   vpc_id      = aws_vpc.main.id
 
   # Allow HTTP traffic from anywhere
@@ -174,7 +158,7 @@ resource "aws_security_group" "ecs_sg" {
   }
 
   tags = {
-    Name = "stepexplorer-ecs-sg"
+    Name = "stepexplorer-fargate-sg"
   }
 }
 
@@ -183,12 +167,12 @@ resource "aws_security_group" "db_sg" {
   name_prefix = "stepexplorer-db-"
   vpc_id      = aws_vpc.main.id
 
-  # Allow PostgreSQL access from ECS
+  # Allow PostgreSQL access from Fargate
   ingress {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_sg.id]
+    security_groups = [aws_security_group.fargate_sg.id]
   }
 
   egress {
@@ -213,35 +197,7 @@ resource "aws_db_subnet_group" "main" {
   }
 }
 
-# IAM Role for ECS Instances
-resource "aws_iam_role" "ecs_instance_role" {
-  name = "stepexplorer-ecs-instance-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_instance_role_policy" {
-  role       = aws_iam_role.ecs_instance_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
-}
-
-resource "aws_iam_instance_profile" "ecs_instance_profile" {
-  name = "stepexplorer-ecs-instance-profile"
-  role = aws_iam_role.ecs_instance_role.name
-}
-
-# IAM Role for ECS Task Execution
+# IAM Role for ECS Task Execution (Fargate)
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "stepexplorer-ecs-task-execution-role"
 
@@ -262,23 +218,6 @@ resource "aws_iam_role" "ecs_task_execution_role" {
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-# EC2 Instance for ECS
-resource "aws_instance" "ecs_instance" {
-  ami           = data.aws_ami.amazon_linux.id
-  instance_type = "t4g.nano"
-  
-  subnet_id                   = aws_subnet.public_a.id
-  vpc_security_group_ids      = [aws_security_group.ecs_sg.id]
-  associate_public_ip_address = true
-  iam_instance_profile        = aws_iam_instance_profile.ecs_instance_profile.name
-  
-  user_data = file("${path.module}/user-data.sh")
-  
-  tags = {
-    Name = "stepexplorer-ecs"
-  }
 }
 
 # RDS PostgreSQL Instance
@@ -345,25 +284,24 @@ resource "aws_cloudwatch_log_group" "api" {
   }
 }
 
-# ECS Task Definition
+# ECS Task Definition for Fargate
 resource "aws_ecs_task_definition" "api" {
   family                   = "stepexplorer-api"
-  requires_compatibilities = ["EC2"]
-  network_mode             = "bridge"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"   # 0.25 vCPU
+  memory                   = "512"   # 512 MB
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  cpu                      = "256"
-  memory                   = "512"
 
   container_definitions = jsonencode([
     {
       name  = "api"
       image = "${aws_ecr_repository.api.repository_url}:latest"
-
       
       portMappings = [
         {
           containerPort = 3000
-          hostPort      = 3000
+          protocol      = "tcp"
         }
       ]
 
@@ -400,7 +338,7 @@ resource "aws_ecs_task_definition" "api" {
       portMappings = [
         {
           containerPort = 6379
-          hostPort      = 6379
+          protocol      = "tcp"
         }
       ]
 
@@ -409,12 +347,19 @@ resource "aws_ecs_task_definition" "api" {
   ])
 }
 
-# ECS Service
+# ECS Service for Fargate
 resource "aws_ecs_service" "api" {
   name            = "stepexplorer-api-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api.arn
   desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = [aws_subnet.public_a.id, aws_subnet.public_b.id]
+    security_groups  = [aws_security_group.fargate_sg.id]
+    assign_public_ip = true
+  }
 
   tags = {
     Name = "stepexplorer-api-service"
@@ -422,11 +367,6 @@ resource "aws_ecs_service" "api" {
 }
 
 # Outputs
-output "ec2_public_ip" {
-  description = "Public IP address of the ECS instance"
-  value       = aws_instance.ecs_instance.public_ip
-}
-
 output "rds_endpoint" {
   description = "RDS instance endpoint"
   value       = aws_db_instance.postgres.endpoint
