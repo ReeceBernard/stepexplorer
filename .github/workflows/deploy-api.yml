@@ -35,11 +35,9 @@ jobs:
           host: ${{ secrets.AWS_HOST }}
           username: ec2-user
           key: ${{ secrets.AWS_PRIVATE_KEY }}
-          script: |
-            cd /home/ec2-user/stepexplorer
+          script: cd /home/ec2-user/stepexplorer
             git pull origin main
-            cd apps/api
-            npm ci
-            npm run build
+            npm install --prefix apps/api
+            npm run build --prefix apps/api
             docker-compose down
             docker-compose up -d --build
