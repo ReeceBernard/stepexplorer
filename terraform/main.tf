@@ -11,6 +11,7 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Get latest Amazon Linux 2 AMI
 data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
@@ -46,6 +47,7 @@ resource "aws_internet_gateway" "main" {
   }
 }
 
+# Public Subnets
 resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
@@ -103,7 +105,7 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Associate Public Subnets with Public Route Table
+# Associate Public Subnets with Route Table
 resource "aws_route_table_association" "public_a" {
   subnet_id      = aws_subnet.public_a.id
   route_table_id = aws_route_table.public.id
@@ -114,7 +116,7 @@ resource "aws_route_table_association" "public_b" {
   route_table_id = aws_route_table.public.id
 }
 
-# Route Table for Private Subnets (no internet access)
+# Route Table for Private Subnets
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
@@ -123,7 +125,7 @@ resource "aws_route_table" "private" {
   }
 }
 
-# Associate Private Subnets with Private Route Table
+# Associate Private Subnets with Route Table
 resource "aws_route_table_association" "private_a" {
   subnet_id      = aws_subnet.private_a.id
   route_table_id = aws_route_table.private.id
@@ -134,9 +136,9 @@ resource "aws_route_table_association" "private_b" {
   route_table_id = aws_route_table.private.id
 }
 
-# Security Group for EC2 (Application Server)
-resource "aws_security_group" "app_sg" {
-  name_prefix = "stepexplorer-app-"
+# Security Group for ECS (Application)
+resource "aws_security_group" "ecs_sg" {
+  name_prefix = "stepexplorer-ecs-"
   vpc_id      = aws_vpc.main.id
 
   # Allow HTTP traffic from anywhere
@@ -155,19 +157,12 @@ resource "aws_security_group" "app_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow your app port from load balancer
+  # Allow app port
   ingress {
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]  # Only from within VPC
-  }
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # We'll remove this after setup
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # Allow all outbound traffic
@@ -179,24 +174,23 @@ resource "aws_security_group" "app_sg" {
   }
 
   tags = {
-    Name = "stepexplorer-app-sg"
+    Name = "stepexplorer-ecs-sg"
   }
 }
 
-# Security Group for RDS (Database)
+# Security Group for RDS
 resource "aws_security_group" "db_sg" {
   name_prefix = "stepexplorer-db-"
   vpc_id      = aws_vpc.main.id
 
-  # Allow PostgreSQL access only from app servers
+  # Allow PostgreSQL access from ECS
   ingress {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.app_sg.id]
+    security_groups = [aws_security_group.ecs_sg.id]
   }
 
-  # No outbound rules needed for RDS
   egress {
     from_port   = 0
     to_port     = 0
@@ -209,7 +203,7 @@ resource "aws_security_group" "db_sg" {
   }
 }
 
-# DB Subnet Group (required for RDS)
+# DB Subnet Group
 resource "aws_db_subnet_group" "main" {
   name       = "stepexplorer-db-subnet-group"
   subnet_ids = [aws_subnet.private_a.id, aws_subnet.private_b.id]
@@ -219,20 +213,71 @@ resource "aws_db_subnet_group" "main" {
   }
 }
 
-# EC2 Instance for the application
-resource "aws_instance" "app_server" {
-  ami           = data.aws_ami.amazon_linux.id # Latest Amazon Linux 2 ARM64
-  instance_type = "t4g.nano" # $3.50 per month
+# IAM Role for ECS Instances
+resource "aws_iam_role" "ecs_instance_role" {
+  name = "stepexplorer-ecs-instance-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_instance_role_policy" {
+  role       = aws_iam_role.ecs_instance_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+}
+
+resource "aws_iam_instance_profile" "ecs_instance_profile" {
+  name = "stepexplorer-ecs-instance-profile"
+  role = aws_iam_role.ecs_instance_role.name
+}
+
+# IAM Role for ECS Task Execution
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name = "stepexplorer-ecs-task-execution-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# EC2 Instance for ECS
+resource "aws_instance" "ecs_instance" {
+  ami           = data.aws_ami.amazon_linux.id
+  instance_type = "t4g.nano"
   
   subnet_id                   = aws_subnet.public_a.id
-  vpc_security_group_ids      = [aws_security_group.app_sg.id]
+  vpc_security_group_ids      = [aws_security_group.ecs_sg.id]
   associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.ecs_instance_profile.name
   
-  # needed for docker and setting up the ec2
   user_data = file("${path.module}/user-data.sh")
   
   tags = {
-    Name = "stepexplorer-app"
+    Name = "stepexplorer-ecs"
   }
 }
 
@@ -241,7 +286,7 @@ resource "aws_db_instance" "postgres" {
   identifier = "stepexplorer-db"
   
   engine         = "postgres"
-  engine_version = "17.5"
+  engine_version = "15.7"
   instance_class = "db.t4g.micro"
   
   allocated_storage     = 20
@@ -259,23 +304,127 @@ resource "aws_db_instance" "postgres" {
   backup_window          = "03:00-04:00"
   maintenance_window     = "sun:04:00-sun:05:00"
   
-  skip_final_snapshot = true  # change later for production
-  deletion_protection = true
+  skip_final_snapshot = true
+  deletion_protection = false  # For development
   
   tags = {
     Name = "stepexplorer-db"
   }
 }
 
-# Outputs - Important info you'll need
-output "ec2_public_ip" {
-  description = "Public IP address of the EC2 instance"
-  value       = aws_instance.app_server.public_ip
+# ECR Repository
+resource "aws_ecr_repository" "api" {
+  name                 = "stepexplorer-api"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "stepexplorer-api"
+  }
 }
 
-output "ec2_public_dns" {
-  description = "Public DNS name of the EC2 instance"
-  value       = aws_instance.app_server.public_dns
+# ECS Cluster
+resource "aws_ecs_cluster" "main" {
+  name = "stepexplorer-cluster"
+
+  tags = {
+    Name = "stepexplorer-cluster"
+  }
+}
+
+# CloudWatch Log Group
+resource "aws_cloudwatch_log_group" "api" {
+  name              = "/ecs/stepexplorer-api"
+  retention_in_days = 7
+
+  tags = {
+    Name = "stepexplorer-api-logs"
+  }
+}
+
+# ECS Task Definition
+resource "aws_ecs_task_definition" "api" {
+  family                   = "stepexplorer-api"
+  requires_compatibilities = ["EC2"]
+  network_mode             = "bridge"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  cpu                      = "256"
+  memory                   = "512"
+
+  container_definitions = jsonencode([
+    {
+      name  = "api"
+      image = "${aws_ecr_repository.api.repository_url}:latest"
+
+      
+      portMappings = [
+        {
+          containerPort = 3000
+          hostPort      = 3000
+        }
+      ]
+
+      environment = [
+        {
+          name  = "NODE_ENV"
+          value = "production"
+        },
+        {
+          name  = "DATABASE_URL"
+          value = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.endpoint}:${aws_db_instance.postgres.port}/${aws_db_instance.postgres.db_name}"
+        },
+        {
+          name  = "REDIS_URL"
+          value = "redis://localhost:6379"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/stepexplorer-api"
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+
+      essential = true
+    },
+    {
+      name  = "redis"
+      image = "redis:7-alpine"
+      
+      portMappings = [
+        {
+          containerPort = 6379
+          hostPort      = 6379
+        }
+      ]
+
+      essential = true
+    }
+  ])
+}
+
+# ECS Service
+resource "aws_ecs_service" "api" {
+  name            = "stepexplorer-api-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.api.arn
+  desired_count   = 1
+
+  tags = {
+    Name = "stepexplorer-api-service"
+  }
+}
+
+# Outputs
+output "ec2_public_ip" {
+  description = "Public IP address of the ECS instance"
+  value       = aws_instance.ecs_instance.public_ip
 }
 
 output "rds_endpoint" {
@@ -284,13 +433,23 @@ output "rds_endpoint" {
   sensitive   = true
 }
 
-output "rds_port" {
-  description = "RDS instance port"
-  value       = aws_db_instance.postgres.port
-}
-
 output "database_url" {
-  description = "Database connection URL for your app"
+  description = "Database connection URL"
   value       = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.endpoint}:${aws_db_instance.postgres.port}/${aws_db_instance.postgres.db_name}"
   sensitive   = true
+}
+
+output "ecr_repository_url" {
+  description = "ECR repository URL for the API"
+  value       = aws_ecr_repository.api.repository_url
+}
+
+output "ecs_cluster_name" {
+  description = "ECS cluster name"
+  value       = aws_ecs_cluster.main.name
+}
+
+output "ecs_service_name" {
+  description = "ECS service name"
+  value       = aws_ecs_service.api.name
 }

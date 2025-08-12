@@ -4,24 +4,21 @@
 yum update -y
 
 # Install Docker
-yum install -y docker
+yum install -y docker ecs-init
 
-# Install Docker Compose
-curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
-
-# Start Docker service
+# Start services
 service docker start
+service ecs start
 
-# Add ec2-user to docker group (so they can run docker commands)
+# Configure ECS
+echo ECS_CLUSTER=stepexplorer-cluster >> /etc/ecs/ecs.config
+
+# Enable services on boot
+chkconfig docker on
+chkconfig ecs on
+
+# Add ec2-user to docker group
 usermod -a -G docker ec2-user
 
-# Enable Docker to start on boot
-chkconfig docker on
-
-# Install git (needed for deployment)
+# Install git
 yum install -y git
-
-# Create app directory
-mkdir -p /home/ec2-user/stepexplorer
-chown ec2-user:ec2-user /home/ec2-user/stepexplorer

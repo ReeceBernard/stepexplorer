@@ -1,43 +1,42 @@
-name: Deploy API to AWS
+name: Deploy to AWS ECS
 
 on:
   push:
     branches: [main]
-    # paths: ["apps/api/**"] might add back in a few
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          node-version: "18"
-          cache: "npm"
-          cache-dependency-path: "apps/api/package-lock.json"
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-      - name: Install API dependencies
-        run: |
-          cd apps/api
-          npm ci
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build API
-        run: |
-          cd apps/api
-          npm run build
-
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v0.1.7
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
         with:
-          host: ${{ secrets.AWS_HOST }}
-          username: ec2-user
-          key: ${{ secrets.AWS_PRIVATE_KEY }}
-          script: cd /home/ec2-user/stepexplorer
-            git pull origin main
-            npm install --prefix apps/api
-            npm run build --prefix apps/api
-            docker-compose down
-            docker-compose up -d --build
+          context: ./apps/api
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/stepexplorer-api:latest
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster stepexplorer-cluster \
+            --service stepexplorer-api-service \
+            --force-new-deployment \
+            --query 'service.deployments[0].status'
+
+          echo "✅ Deployment started! ECS will pull the new image and restart containers."
