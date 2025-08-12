@@ -163,6 +163,13 @@ resource "aws_security_group" "app_sg" {
     cidr_blocks = ["10.0.0.0/16"]  # Only from within VPC
   }
 
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # We'll remove this after setup
+  }
+
   # Allow all outbound traffic
   egress {
     from_port   = 0

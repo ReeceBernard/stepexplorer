@@ -1,0 +1,45 @@
+name: Deploy API to AWS
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/api/**"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: "apps/api/package-lock.json"
+
+      - name: Install API dependencies
+        run: |
+          cd apps/api
+          npm ci
+
+      - name: Build API
+        run: |
+          cd apps/api
+          npm run build
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ec2-user
+          key: ${{ secrets.AWS_PRIVATE_KEY }}
+          script: |
+            cd /home/ec2-user/stepexplorer
+            git pull origin main
+            cd apps/api
+            npm ci
+            npm run build
+            docker-compose down
+            docker-compose up -d --build
