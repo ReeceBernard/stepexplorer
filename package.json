@@ -1,0 +1,25 @@
+{
+  "name": "stepexplorer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Walking exploration app that reveals maps as you walk",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:services\" \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:docker": "docker-compose up --build",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:services": "docker-compose up -d postgres redis",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:web": "npm run build --workspace=apps/web",
+    "stop": "docker-compose down",
+    "clean": "docker-compose down -v",
+    "logs": "docker-compose logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
