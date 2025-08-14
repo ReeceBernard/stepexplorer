@@ -31,12 +31,103 @@ jobs:
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/stepexplorer-api:latest
 
-      - name: Update ECS service
+      - name: Run database migrations
         run: |
+          echo "🗄️ Running database migrations..."
+
+          # Get network configuration from existing service
+          SUBNETS=$(aws ecs describe-services \
+            --cluster stepexplorer-cluster \
+            --services stepexplorer-api-service \
+            --query 'services[0].networkConfiguration.awsvpcConfiguration.subnets' \
+            --output text | tr '\t' ',')
+
+          SECURITY_GROUPS=$(aws ecs describe-services \
+            --cluster stepexplorer-cluster \
+            --services stepexplorer-api-service \
+            --query 'services[0].networkConfiguration.awsvpcConfiguration.securityGroups' \
+            --output text | tr '\t' ',')
+
+          echo "📝 Subnets: $SUBNETS"
+          echo "📝 Security Groups: $SECURITY_GROUPS"
+
+          # Run migration task
+          TASK_ARN=$(aws ecs run-task \
+            --cluster stepexplorer-cluster \
+            --task-definition stepexplorer-api \
+            --overrides '{"containerOverrides":[{"name":"api","command":["npm","run","db:migrate"]}]}' \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUPS],assignPublicIp=ENABLED}" \
+            --launch-type FARGATE \
+            --started-by "GitHub-Migration" \
+            --query 'tasks[0].taskArn' \
+            --output text)
+
+          echo "🚀 Migration task: $TASK_ARN"
+
+          # Wait for task to complete (max 10 minutes)
+          echo "⏳ Waiting for migrations..."
+          for i in {1..20}; do
+            TASK_STATUS=$(aws ecs describe-tasks \
+              --cluster stepexplorer-cluster \
+              --tasks $TASK_ARN \
+              --query 'tasks[0].lastStatus' \
+              --output text)
+            
+            echo "📊 Status: $TASK_STATUS ($i/20)"
+            
+            if [ "$TASK_STATUS" = "STOPPED" ]; then
+              break
+            fi
+            
+            sleep 30
+          done
+
+          # Check result
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster stepexplorer-cluster \
+            --tasks $TASK_ARN \
+            --query 'tasks[0].containers[0].exitCode' \
+            --output text)
+
+          echo "🔍 Migration exit code: $EXIT_CODE"
+
+          if [ "$EXIT_CODE" = "0" ]; then
+            echo "✅ Migrations successful"
+          else
+            echo "❌ Migrations failed"
+            
+            # Get logs for debugging
+            echo "📋 Migration logs:"
+            aws logs get-log-events \
+              --log-group-name "/ecs/stepexplorer-api" \
+              --log-stream-name "ecs/api/$(echo $TASK_ARN | cut -d'/' -f3)" \
+              --start-time $(date -d '10 minutes ago' +%s)000 \
+              --query 'events[*].message' \
+              --output text 2>/dev/null || echo "No logs available"
+            
+            exit 1
+          fi
+
+      - name: Update ECS service
+        if: success()
+        run: |
+          echo "🚀 Deploying API..."
+
           aws ecs update-service \
             --cluster stepexplorer-cluster \
             --service stepexplorer-api-service \
             --force-new-deployment \
             --query 'service.deployments[0].status'
 
-          echo "✅ Deployment started! ECS will pull the new image and restart containers."
+          echo "✅ Deployment started!"
+
+      - name: Wait for deployment
+        if: success()
+        run: |
+          echo "⏳ Waiting for service to stabilize..."
+
+          aws ecs wait services-stable \
+            --cluster stepexplorer-cluster \
+            --services stepexplorer-api-service
+
+          echo "✅ Deployment complete!"
