@@ -3,7 +3,6 @@ name: Deploy Frontend to S3
 on:
   push:
     branches: [main]
-    paths: ["apps/web/**"]
 
 jobs:
   deploy-frontend:
@@ -17,8 +16,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
-          cache-dependency-path: "apps/web/package-lock.json"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
