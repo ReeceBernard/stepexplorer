@@ -2,14 +2,15 @@ FROM node:23-alpine
 
 WORKDIR /app
 
-# Install curl for health checks
+# Install system dependencies
 RUN apk add --no-cache curl
 
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
+COPY drizzle.config.ts ./
 
-# Install ALL dependencies (including dev deps for building)
+# Use npm install instead of npm ci for flexibility
 RUN npm install
 
 # Copy source code
@@ -18,8 +19,16 @@ COPY src/ ./src/
 # Build the TypeScript code
 RUN npm run build
 
-# Switch to production dependencies only
-RUN npm ci --only=production
+# Install drizzle-kit for migrations
+RUN npm install drizzle-kit
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S stepexplorer -u 1001
+
+# Change ownership of app directory
+RUN chown -R stepexplorer:nodejs /app
+USER stepexplorer
 
 EXPOSE 3000
 

@@ -188,3 +188,45 @@ export const createCloudsTexture = (): THREE.CanvasTexture => {
 
   return new THREE.CanvasTexture(canvas);
 };
+
+export function getDeviceFingerprint(): string {
+  let deviceFingerPrint = localStorage.getItem("stepexplorer-device-id");
+
+  if (!deviceFingerPrint) {
+    // Generate new device ID
+    deviceFingerPrint = generateDeviceFingerprint();
+    localStorage.setItem("stepexplorer-device-id", deviceFingerPrint);
+    console.log(
+      "🆔 Generated new device ID:",
+      deviceFingerPrint.substring(0, 8) + "..."
+    );
+  } else {
+    console.log(
+      "🔄 Using existing device ID:",
+      deviceFingerPrint.substring(0, 8) + "..."
+    );
+  }
+
+  return deviceFingerPrint;
+}
+
+function generateDeviceFingerprint(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export function hasStoredDeviceFingerprint(): boolean {
+  return localStorage.getItem("stepexplorer-device-id") !== null;
+}
+
+export function clearDeviceFingerprint(): void {
+  localStorage.removeItem("stepexplorer-device-id");
+  console.log("🗑️ Device ID cleared");
+}
