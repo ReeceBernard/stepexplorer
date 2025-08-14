@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { API_URL } from "@/lib/utils";
 import { Loader2, MapPin, Users, Zap } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
@@ -205,14 +206,11 @@ export default function ComingSoonPage() {
       setChecking(true);
       const deviceFingerprint = getDeviceFingerprint();
 
-      const response = await fetch(
-        "http://localhost:3001/api/users/authenticate",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ deviceFingerprint }),
-        }
-      );
+      const response = await fetch(`${API_URL}/api/users/authenticate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceFingerprint }),
+      });
 
       const data = await response.json();
 
@@ -236,7 +234,7 @@ export default function ComingSoonPage() {
       setError("");
       const deviceFingerprint = getDeviceFingerprint();
 
-      const response = await fetch("http://localhost:3001/api/users/register", {
+      const response = await fetch(`${API_URL}/api/users/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceFingerprint }),

@@ -28,37 +28,54 @@ jobs:
           aws-region: us-east-1
 
       - name: Install dependencies
-        run: |
-          cd apps/web
-          npm ci
+        working-directory: apps/web
+        run: npm ci
 
-      - name: Build Next.js app
+      - name: Build and export Next.js app
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: |
-          cd apps/web
+          echo "🏗️ Building Next.js app..."
           npm run build
-
-      - name: Export static files
-        run: |
-          cd apps/web
-          npm run export || npm run build
+          echo "📦 Static files exported to 'out' directory"
 
       - name: Sync to S3
         run: |
+          echo "☁️ Syncing to S3..."
           aws s3 sync apps/web/out/ s3://stepexplorer-frontend-9i8w0q8o --delete --exact-timestamps
+          echo "✅ Files synced to S3"
+
+      - name: Get CloudFront Distribution ID
+        id: cloudfront
+        run: |
+          # Get distribution ID by domain name
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, 'stepexplorer.com')].Id" \
+            --output text)
+
+          if [ "$DISTRIBUTION_ID" = "" ] || [ "$DISTRIBUTION_ID" = "None" ]; then
+            # Fallback: get by origin (S3 bucket)
+            DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+              --query "DistributionList.Items[?Origins.Items[0].DomainName=='stepexplorer-frontend-9i8w0q8o.s3.us-east-1.amazonaws.com'].Id" \
+              --output text)
+          fi
+
+          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+          echo "📡 Found CloudFront Distribution: $DISTRIBUTION_ID"
 
       - name: Invalidate CloudFront
+        if: steps.cloudfront.outputs.distribution_id != '' && steps.cloudfront.outputs.distribution_id != 'None'
         run: |
-          DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='stepexplorer-frontend' || Aliases.Items[0]=='stepexplorer.com'].Id | [0]" --output text)
-          if [ "$DISTRIBUTION_ID" != "None" ] && [ "$DISTRIBUTION_ID" != "" ]; then
-            aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
-            echo "✅ CloudFront cache invalidated for distribution: $DISTRIBUTION_ID"
-          else
-            echo "⚠️  CloudFront distribution not found, finding by domain..."
-            aws cloudfront list-distributions --query "DistributionList.Items[?DomainName=='dy4dywaqklyn2.cloudfront.net'].Id | [0]" --output text | xargs -I {} aws cloudfront create-invalidation --distribution-id {} --paths "/*"
-          fi
+          echo "🔄 Invalidating CloudFront cache..."
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.cloudfront.outputs.distribution_id }} \
+            --paths "/*"
+          echo "✅ CloudFront cache invalidated"
 
       - name: Display deployment URLs
         run: |
           echo "🚀 Frontend deployed successfully!"
           echo "📱 CloudFront URL: https://dy4dywaqklyn2.cloudfront.net"
-          echo "🌐 S3 URL: https://stepexplorer-frontend-9i8w0q8o.s3-website-us-east-1.amazonaws.com"
+          echo "🌐 Domain: https://stepexplorer.com"
+          echo "🪣 S3 Direct: https://stepexplorer-frontend-9i8w0q8o.s3-website-us-east-1.amazonaws.com"
