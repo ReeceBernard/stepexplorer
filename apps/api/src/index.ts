@@ -6,6 +6,20 @@ import userRoutes from "./routes/user/user";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const corsOptions = {
+  origin: [
+    "http://localhost:3000",
+    "http://localhost:3005",
+    "https://stepexplorer.com",
+    "https://www.stepexplorer.com",
+    "https://dy4dywaqklyn2.cloudfront.net",
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+};
+
+app.use(cors(corsOptions));
+
 // Middleware
 app.use(helmet());
 app.use(cors());
