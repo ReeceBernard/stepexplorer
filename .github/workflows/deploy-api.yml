@@ -31,103 +31,66 @@ jobs:
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/stepexplorer-api:latest
 
-      - name: Run database migrations
+      - name: Run migrations via ECS
+        id: migrations
         run: |
           echo "🗄️ Running database migrations..."
 
-          # Get network configuration from existing service
-          SUBNETS=$(aws ecs describe-services \
+          # Get current task definition
+          TASK_DEF=$(aws ecs describe-services \
             --cluster stepexplorer-cluster \
             --services stepexplorer-api-service \
-            --query 'services[0].networkConfiguration.awsvpcConfiguration.subnets' \
-            --output text | tr '\t' ',')
+            --query 'services[0].taskDefinition' --output text)
 
-          SECURITY_GROUPS=$(aws ecs describe-services \
-            --cluster stepexplorer-cluster \
-            --services stepexplorer-api-service \
-            --query 'services[0].networkConfiguration.awsvpcConfiguration.securityGroups' \
-            --output text | tr '\t' ',')
+          echo "📝 Using task definition: $TASK_DEF"
 
-          echo "📝 Subnets: $SUBNETS"
-          echo "📝 Security Groups: $SECURITY_GROUPS"
+          # Get container name
+          CONTAINER_NAME=$(aws ecs describe-task-definition \
+            --task-definition $TASK_DEF \
+            --query 'taskDefinition.containerDefinitions[0].name' --output text)
 
-          # Run migration task
+          echo "📦 Container name: $CONTAINER_NAME"
+
+          # Create and run migration task
           TASK_ARN=$(aws ecs run-task \
             --cluster stepexplorer-cluster \
-            --task-definition stepexplorer-api \
-            --overrides '{"containerOverrides":[{"name":"api","command":["npm","run","db:migrate"]}]}' \
-            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUPS],assignPublicIp=ENABLED}" \
+            --task-definition $TASK_DEF \
+            --overrides "{\"containerOverrides\":[{\"name\":\"$CONTAINER_NAME\",\"command\":[\"npm\",\"run\",\"db:migrate\"]}]}" \
+            --network-configuration "$(aws ecs describe-services --cluster stepexplorer-cluster --services stepexplorer-api-service --query 'services[0].networkConfiguration' --output json)" \
             --launch-type FARGATE \
             --started-by "GitHub-Migration" \
-            --query 'tasks[0].taskArn' \
-            --output text)
+            --query 'tasks[0].taskArn' --output text)
 
-          echo "🚀 Migration task: $TASK_ARN"
+          echo "🚀 Started migration task: $TASK_ARN"
 
-          # Wait for task to complete (max 10 minutes)
-          echo "⏳ Waiting for migrations..."
-          for i in {1..20}; do
-            TASK_STATUS=$(aws ecs describe-tasks \
-              --cluster stepexplorer-cluster \
-              --tasks $TASK_ARN \
-              --query 'tasks[0].lastStatus' \
-              --output text)
-            
-            echo "📊 Status: $TASK_STATUS ($i/20)"
-            
-            if [ "$TASK_STATUS" = "STOPPED" ]; then
-              break
-            fi
-            
-            sleep 30
-          done
+          # Wait for task to complete
+          echo "⏳ Waiting for migration to complete..."
+          aws ecs wait tasks-stopped \
+            --cluster stepexplorer-cluster \
+            --tasks $TASK_ARN
 
-          # Check result
+          # Check if task succeeded
           EXIT_CODE=$(aws ecs describe-tasks \
             --cluster stepexplorer-cluster \
             --tasks $TASK_ARN \
-            --query 'tasks[0].containers[0].exitCode' \
-            --output text)
+            --query 'tasks[0].containers[0].exitCode' --output text)
 
           echo "🔍 Migration exit code: $EXIT_CODE"
 
           if [ "$EXIT_CODE" = "0" ]; then
             echo "✅ Migrations successful"
           else
-            echo "❌ Migrations failed"
-            
-            # Get logs for debugging
-            echo "📋 Migration logs:"
-            aws logs get-log-events \
-              --log-group-name "/ecs/stepexplorer-api" \
-              --log-stream-name "ecs/api/$(echo $TASK_ARN | cut -d'/' -f3)" \
-              --start-time $(date -d '10 minutes ago' +%s)000 \
-              --query 'events[*].message' \
-              --output text 2>/dev/null || echo "No logs available"
-            
+            echo "❌ Migrations failed with exit code $EXIT_CODE"
             exit 1
           fi
 
-      - name: Update ECS service
+      - name: Deploy to ECS
         if: success()
         run: |
-          echo "🚀 Deploying API..."
-
+          echo "🚀 Deploying to ECS..."
           aws ecs update-service \
             --cluster stepexplorer-cluster \
             --service stepexplorer-api-service \
-            --force-new-deployment \
-            --query 'service.deployments[0].status'
+            --force-new-deployment
 
           echo "✅ Deployment started!"
-
-      - name: Wait for deployment
-        if: success()
-        run: |
-          echo "⏳ Waiting for service to stabilize..."
-
-          aws ecs wait services-stable \
-            --cluster stepexplorer-cluster \
-            --services stepexplorer-api-service
-
-          echo "✅ Deployment complete!"
