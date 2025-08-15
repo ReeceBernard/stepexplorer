@@ -42,7 +42,7 @@ jobs:
       - name: Build Next.js app
         working-directory: apps/web
         env:
-          NEXT_PUBLIC_API_BASE_URL: https://api.stepexplorer.com/api
+          NEXT_PUBLIC_API_BASE_URL: https://api.stepexplorer.com
           # Disable telemetry for cleaner logs
           NEXT_TELEMETRY_DISABLED: 1
         run: |

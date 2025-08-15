@@ -186,7 +186,6 @@ export default function ComingSoonPage() {
     { x: number; y: number; delay: number; duration: number; key: number }[]
   >([]);
 
-  // Registration state
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
