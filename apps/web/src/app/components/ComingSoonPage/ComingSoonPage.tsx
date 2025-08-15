@@ -206,7 +206,7 @@ export default function ComingSoonPage() {
       setChecking(true);
       const deviceFingerprint = getDeviceFingerprint();
 
-      const response = await fetch(`${API_URL}/api/users/authenticate`, {
+      const response = await fetch(`${API_URL}/users/authenticate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceFingerprint }),
@@ -234,7 +234,7 @@ export default function ComingSoonPage() {
       setError("");
       const deviceFingerprint = getDeviceFingerprint();
 
-      const response = await fetch(`${API_URL}/api/users/register`, {
+      const response = await fetch(`${API_URL}/users/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceFingerprint }),
