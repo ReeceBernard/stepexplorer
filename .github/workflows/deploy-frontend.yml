@@ -3,6 +3,7 @@ name: Deploy Frontend to S3
 on:
   push:
     branches: [main]
+    paths: ["apps/web/**"]
 
 jobs:
   deploy-frontend:
@@ -24,18 +25,32 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: apps/web/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('apps/web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install dependencies
         working-directory: apps/web
-        run: npm ci
+        run: |
+          # Clean install with platform-specific binaries
+          npm ci
+          # Force rebuild native modules for Linux
+          npm rebuild
 
-      - name: Build and export Next.js app
+      - name: Build Next.js app
         working-directory: apps/web
         env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.API_BASE_URL || 'http://localhost:3001' }}
+          # Disable telemetry for cleaner logs
+          NEXT_TELEMETRY_DISABLED: 1
         run: |
           echo "🏗️ Building Next.js app..."
           npm run build
-          echo "📦 Static files exported to 'out' directory"
+          echo "📦 Build completed"
 
       - name: Sync to S3
         run: |
@@ -46,20 +61,18 @@ jobs:
       - name: Get CloudFront Distribution ID
         id: cloudfront
         run: |
-          # Get distribution ID by domain name
           DISTRIBUTION_ID=$(aws cloudfront list-distributions \
             --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, 'stepexplorer.com')].Id" \
             --output text)
 
           if [ "$DISTRIBUTION_ID" = "" ] || [ "$DISTRIBUTION_ID" = "None" ]; then
-            # Fallback: get by origin (S3 bucket)
             DISTRIBUTION_ID=$(aws cloudfront list-distributions \
               --query "DistributionList.Items[?Origins.Items[0].DomainName=='stepexplorer-frontend-9i8w0q8o.s3.us-east-1.amazonaws.com'].Id" \
               --output text)
           fi
 
           echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
-          echo "📡 Found CloudFront Distribution: $DISTRIBUTION_ID"
+          echo "📡 CloudFront Distribution: $DISTRIBUTION_ID"
 
       - name: Invalidate CloudFront
         if: steps.cloudfront.outputs.distribution_id != '' && steps.cloudfront.outputs.distribution_id != 'None'
@@ -75,4 +88,3 @@ jobs:
           echo "🚀 Frontend deployed successfully!"
           echo "📱 CloudFront URL: https://dy4dywaqklyn2.cloudfront.net"
           echo "🌐 Domain: https://stepexplorer.com"
-          echo "🪣 S3 Direct: https://stepexplorer-frontend-9i8w0q8o.s3-website-us-east-1.amazonaws.com"
