@@ -34,12 +34,12 @@ app.get("/health", (req, res) => {
 });
 
 // Basic route
-app.get("/api/test", (req, res) => {
+app.get("/test", (req, res) => {
   res.json({ message: "StepExplorer API is running!" });
 });
 
 // User routes
-app.use("/api/users", userRoutes);
+app.use("/users", userRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 StepExplorer API running on port ${PORT}`);
