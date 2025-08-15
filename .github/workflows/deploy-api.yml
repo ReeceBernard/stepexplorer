@@ -31,6 +31,36 @@ jobs:
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/stepexplorer-api:latest
 
+      - name: Enable PostGIS extension
+        run: |
+          echo "🗺️ Enabling PostGIS extension..."
+
+          # Get database endpoint from Terraform
+          DB_ENDPOINT=$(aws rds describe-db-instances \
+            --db-instance-identifier stepexplorer-db \
+            --query 'DBInstances[0].Endpoint.Address' \
+            --output text)
+
+          echo "📝 Database endpoint: $DB_ENDPOINT"
+
+          # Enable PostGIS extension (requires connecting to the database)
+          # We'll do this via a one-time ECS task
+          TASK_ARN=$(aws ecs run-task \
+            --cluster stepexplorer-cluster \
+            --task-definition stepexplorer-api \
+            --overrides '{"containerOverrides":[{"name":"api","command":["sh","-c","apt-get update && apt-get install -y postgresql-client && psql $DATABASE_URL -c \"CREATE EXTENSION IF NOT EXISTS postgis;\""]}]}' \
+            --network-configuration "$(aws ecs describe-services --cluster stepexplorer-cluster --services stepexplorer-api-service --query 'services[0].networkConfiguration' --output json)" \
+            --launch-type FARGATE \
+            --started-by "PostGIS-Setup" \
+            --query 'tasks[0].taskArn' --output text)
+
+          echo "🔧 PostGIS setup task: $TASK_ARN"
+
+          # Wait for completion
+          aws ecs wait tasks-stopped --cluster stepexplorer-cluster --tasks $TASK_ARN
+
+          echo "✅ PostGIS extension enabled"
+
       - name: Run migrations via ECS
         id: migrations
         run: |
