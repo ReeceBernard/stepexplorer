@@ -37,8 +37,6 @@ jobs:
         run: |
           # Clean install with platform-specific binaries
           npm ci
-          # Force rebuild native modules for Linux
-          npm rebuild
 
       - name: Build Next.js app
         working-directory: apps/web
