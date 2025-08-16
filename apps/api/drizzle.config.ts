@@ -7,6 +7,7 @@ export default {
     url:
       process.env.DATABASE_URL ||
       "postgresql://postgres:password@localhost:5432/stepexplorer",
+    ssl: false,
   },
   verbose: true,
   strict: true,

@@ -6,7 +6,9 @@ const connectionString =
   process.env.DATABASE_URL ||
   "postgresql://postgres:password@localhost:5432/stepexplorer";
 
-const client = postgres(connectionString);
+const client = postgres(connectionString, {
+  ssl: false,
+});
 
 export const db = drizzle(client, { schema });
 
