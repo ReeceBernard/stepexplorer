@@ -1,9 +1,9 @@
-name: Deploy to AWS ECS
+name: Deploy to AWS EC2
 
 on:
   push:
     branches: [main]
-    paths: ["apps/api/**"]
+    paths: ["apps/api/**", "docker-compose.yml"]
 
 jobs:
   deploy:
@@ -32,66 +32,97 @@ jobs:
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/stepexplorer-api:latest
 
-      - name: Run migrations via ECS
-        id: migrations
+      - name: Deploy to EC2
         run: |
-          echo "🗄️ Running database migrations..."
+          echo "🚀 Deploying to EC2..."
+          
+          # Get the EC2 instance IP
+          EC2_IP=$(aws ec2 describe-addresses \
+            --filters "Name=tag:Name,Values=stepexplorer-api-eip" \
+            --query 'Addresses[0].PublicIp' --output text)
+          
+          echo "📍 EC2 IP: $EC2_IP"
+          
+          # Setup SSH
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          
+          # Add EC2 to known hosts
+          ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
+          
+          # Deploy to EC2
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ec2-user@$EC2_IP << 'ENDSSH'
+            set -e
+            
+            echo "🚀 Starting deployment on EC2..."
+            
+            # Clone/pull latest code to get updated docker-compose.yml
+            if [ ! -d "/opt/stepexplorer-repo" ]; then
+              sudo git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git /opt/stepexplorer-repo
+              sudo chown -R ec2-user:ec2-user /opt/stepexplorer-repo
+            else
+              cd /opt/stepexplorer-repo
+              git pull origin main
+            fi
+            
+            # Copy the latest docker-compose.yml
+            cp /opt/stepexplorer-repo/docker-compose.yml /opt/stepexplorer/
+            
+            # Create environment file
+            cd /opt/stepexplorer
+            cat > .env << EOF
+            NODE_ENV=production
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            REDIS_URL=redis://redis:6379
+            EOF
+            
+            # Login to ECR
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 130046065749.dkr.ecr.us-east-1.amazonaws.com
+            
+            # Pull latest image
+            echo "📦 Pulling latest image..."
+            docker-compose pull api
+            
+            # Run migrations
+            echo "🗄️ Running database migrations..."
+            docker-compose run --rm api npm run db:migrate
+            
+            # Restart services
+            echo "🔄 Restarting services..."
+            docker-compose down
+            docker-compose up -d
+            
+            # Cleanup old images
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+            
+            echo "✅ Deployment completed!"
+          ENDSSH
+          
+          # Cleanup
+          rm private_key.pem
+          
+          echo "🎉 Deployment to EC2 successful!"
 
-          # Get current task definition
-          TASK_DEF=$(aws ecs describe-services \
-            --cluster stepexplorer-cluster \
-            --services stepexplorer-api-service \
-            --query 'services[0].taskDefinition' --output text)
-
-          echo "📝 Using task definition: $TASK_DEF"
-
-          # Get container name
-          CONTAINER_NAME=$(aws ecs describe-task-definition \
-            --task-definition $TASK_DEF \
-            --query 'taskDefinition.containerDefinitions[0].name' --output text)
-
-          echo "📦 Container name: $CONTAINER_NAME"
-
-          # Create and run migration task
-          TASK_ARN=$(aws ecs run-task \
-            --cluster stepexplorer-cluster \
-            --task-definition $TASK_DEF \
-            --overrides "{\"containerOverrides\":[{\"name\":\"$CONTAINER_NAME\",\"command\":[\"npm\",\"run\",\"db:migrate\"]}]}" \
-            --network-configuration "$(aws ecs describe-services --cluster stepexplorer-cluster --services stepexplorer-api-service --query 'services[0].networkConfiguration' --output json)" \
-            --launch-type FARGATE \
-            --started-by "GitHub-Migration" \
-            --query 'tasks[0].taskArn' --output text)
-
-          echo "🚀 Started migration task: $TASK_ARN"
-
-          # Wait for task to complete
-          echo "⏳ Waiting for migration to complete..."
-          aws ecs wait tasks-stopped \
-            --cluster stepexplorer-cluster \
-            --tasks $TASK_ARN
-
-          # Check if task succeeded
-          EXIT_CODE=$(aws ecs describe-tasks \
-            --cluster stepexplorer-cluster \
-            --tasks $TASK_ARN \
-            --query 'tasks[0].containers[0].exitCode' --output text)
-
-          echo "🔍 Migration exit code: $EXIT_CODE"
-
-          if [ "$EXIT_CODE" = "0" ]; then
-            echo "✅ Migrations successful"
-          else
-            echo "❌ Migrations failed with exit code $EXIT_CODE"
-            exit 1
-          fi
-
-      - name: Deploy to ECS
-        if: success()
+      - name: Health Check
         run: |
-          echo "🚀 Deploying to ECS..."
-          aws ecs update-service \
-            --cluster stepexplorer-cluster \
-            --service stepexplorer-api-service \
-            --force-new-deployment
-
-          echo "✅ Deployment started!"
+          echo "🏥 Performing health check..."
+          
+          # Get the EC2 instance IP
+          EC2_IP=$(aws ec2 describe-addresses \
+            --filters "Name=tag:Name,Values=stepexplorer-api-eip" \
+            --query 'Addresses[0].PublicIp' --output text)
+          
+          # Wait for service to be ready
+          sleep 30
+          
+          # Health check
+          for i in {1..5}; do
+            if curl -f http://$EC2_IP/health; then
+              echo "✅ Health check passed!"
+              break
+            else
+              echo "⏳ Waiting for service... (attempt $i/5)"
+              sleep 10
+            fi
+          done

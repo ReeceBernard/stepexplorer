@@ -1,49 +1,24 @@
 services:
   api:
-    build: ./apps/api
+    image: 130046065749.dkr.ecr.us-east-1.amazonaws.com/stepexplorer-api:latest
     ports:
-      - "3001:3000"
+      - "80:3001"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/stepexplorer
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
     depends_on:
-      - postgres
       - redis
-    networks:
-      - stepexplorer
-
-  web:
-    build: ./apps/web
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-    networks:
-      - stepexplorer
-
-  postgres:
-    image: postgis/postgis:15-3.3
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=stepexplorer
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-    networks:
-      - stepexplorer
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    networks:
-      - stepexplorer
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
 
 volumes:
-  postgres_data:
   redis_data:
-
-networks:
-  stepexplorer:
-    driver: bridge
