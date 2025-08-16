@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      ["apps/api/**", "docker-compose.yml ", ".github/workflows/deploy-api.yml"]
+      ["apps/api/**", "docker-compose.yml", ".github/workflows/deploy-api.yml"]
 
 jobs:
   deploy:
@@ -36,10 +36,6 @@ jobs:
       - name: Deploy to EC2
         run: |
           echo "🚀 Deploying to EC2..."
-          if ! command -v git &> /dev/null; then
-            echo "📦 Installing git..."
-            sudo yum install -y git
-          fi
 
           # Get the EC2 instance IP
           EC2_IP=$(aws ec2 describe-addresses \
@@ -49,7 +45,7 @@ jobs:
           echo "📍 EC2 IP: $EC2_IP"
 
           # Setup SSH
-          echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" | tr -d '\r' > private_key.pem
           chmod 600 private_key.pem
 
           # Add EC2 to known hosts
@@ -62,9 +58,15 @@ jobs:
             
             echo "🚀 Starting deployment on EC2..."
             
+            # Install git if not present
+            if ! command -v git &> /dev/null; then
+              echo "📦 Installing git..."
+              sudo yum install -y git
+            fi
+            
             # Clone/pull latest code to get updated docker-compose.yml
             if [ ! -d "/opt/stepexplorer-repo" ]; then
-              sudo git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git /opt/stepexplorer-repo
+              sudo git clone https://github.com/reecebernard/stepexplorer.git /opt/stepexplorer-repo
               sudo chown -R ec2-user:ec2-user /opt/stepexplorer-repo
             else
               cd /opt/stepexplorer-repo
