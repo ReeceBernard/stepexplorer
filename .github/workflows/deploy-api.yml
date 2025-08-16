@@ -89,7 +89,7 @@ jobs:
             
             # Cleanup
             docker image prune -f
-            echo "✅ Deployment completed!"
+            echo "✅ Deployment completed!!"
           ENDSSH
 
           rm private_key.pem
