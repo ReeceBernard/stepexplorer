@@ -35,21 +35,22 @@ jobs:
       - name: Deploy to EC2
         run: |
           echo "🚀 Deploying to EC2..."
-          
+
           # Get the EC2 instance IP
           EC2_IP=$(aws ec2 describe-addresses \
             --filters "Name=tag:Name,Values=stepexplorer-api-eip" \
             --query 'Addresses[0].PublicIp' --output text)
-          
+
           echo "📍 EC2 IP: $EC2_IP"
-          
+
           # Setup SSH
           echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
           chmod 600 private_key.pem
-          
+
           # Add EC2 to known hosts
+          mkdir -p ~/.ssh
           ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
-          
+
           # Deploy to EC2
           ssh -i private_key.pem -o StrictHostKeyChecking=no ec2-user@$EC2_IP << 'ENDSSH'
             set -e
@@ -98,24 +99,24 @@ jobs:
             
             echo "✅ Deployment completed!"
           ENDSSH
-          
+
           # Cleanup
           rm private_key.pem
-          
+
           echo "🎉 Deployment to EC2 successful!"
 
       - name: Health Check
         run: |
           echo "🏥 Performing health check..."
-          
+
           # Get the EC2 instance IP
           EC2_IP=$(aws ec2 describe-addresses \
             --filters "Name=tag:Name,Values=stepexplorer-api-eip" \
             --query 'Addresses[0].PublicIp' --output text)
-          
+
           # Wait for service to be ready
           sleep 30
-          
+
           # Health check
           for i in {1..5}; do
             if curl -f http://$EC2_IP/health; then
