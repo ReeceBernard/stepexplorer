@@ -36,6 +36,10 @@ jobs:
       - name: Deploy to EC2
         run: |
           echo "🚀 Deploying to EC2..."
+          if ! command -v git &> /dev/null; then
+            echo "📦 Installing git..."
+            sudo yum install -y git
+          fi
 
           # Get the EC2 instance IP
           EC2_IP=$(aws ec2 describe-addresses \
