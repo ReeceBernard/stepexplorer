@@ -3,8 +3,7 @@ name: Deploy to AWS EC2
 on:
   push:
     branches: [main]
-    paths:
-      ["apps/api/**", "docker-compose.yml", ".github/workflows/deploy-api.yml"]
+    paths: ["apps/api/**", "docker-compose.yml"]
 
 jobs:
   deploy:
@@ -47,90 +46,72 @@ jobs:
           # Setup SSH
           echo "${{ secrets.EC2_PRIVATE_KEY }}" | tr -d '\r' > private_key.pem
           chmod 600 private_key.pem
-
-          # Add EC2 to known hosts
           mkdir -p ~/.ssh
           ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
 
           # Deploy to EC2
           ssh -i private_key.pem -o StrictHostKeyChecking=no ec2-user@$EC2_IP << 'ENDSSH'
             set -e
+            echo "🚀 Starting deployment..."
             
-            echo "🚀 Starting deployment on EC2..."
-            
-            # Install git if not present
-            if ! command -v git &> /dev/null; then
-              echo "📦 Installing git..."
-              sudo yum install -y git
-            fi
-            
-            # Clone/pull latest code to get updated docker-compose.yml
-            if [ ! -d "/opt/stepexplorer-repo" ]; then
-              sudo git clone https://github.com/reecebernard/stepexplorer.git /opt/stepexplorer-repo
-              sudo chown -R ec2-user:ec2-user /opt/stepexplorer-repo
+            # Setup app directory as git repo (one-time setup)
+            if [ ! -d "/home/ec2-user/stepexplorer/.git" ]; then
+              echo "📦 Setting up application repository..."
+              rm -rf /home/ec2-user/stepexplorer
+              git clone https://github.com/reecebernard/stepexplorer.git /home/ec2-user/stepexplorer
             else
-              cd /opt/stepexplorer-repo
+              echo "📦 Updating application code..."
+              cd /home/ec2-user/stepexplorer
               git pull origin main
             fi
             
-            # Copy the latest docker-compose.yml
-            cp /opt/stepexplorer-repo/docker-compose.yml /opt/stepexplorer/
+            cd /home/ec2-user/stepexplorer
             
             # Create environment file
-            cd /opt/stepexplorer
             cat > .env << EOF
-            NODE_ENV=production
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            REDIS_URL=redis://redis:6379
-            EOF
+          NODE_ENV=production
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          REDIS_URL=redis://redis:6379
+          EOF
             
-            # Login to ECR
+            # Login to ECR and pull latest image
             aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 130046065749.dkr.ecr.us-east-1.amazonaws.com
-            
-            # Pull latest image
-            echo "📦 Pulling latest image..."
             docker-compose pull api
             
-            # Run migrations
-            echo "🗄️ Running database migrations..."
+            # Run migrations and restart services
+            echo "🗄️ Running migrations..."
             docker-compose run --rm api npm run db:migrate
             
-            # Restart services
             echo "🔄 Restarting services..."
             docker-compose down
             docker-compose up -d
             
-            # Cleanup old images
-            echo "🧹 Cleaning up old images..."
+            # Cleanup
             docker image prune -f
-            
             echo "✅ Deployment completed!"
           ENDSSH
 
-          # Cleanup
           rm private_key.pem
-
-          echo "🎉 Deployment to EC2 successful!"
+          echo "🎉 Deployment successful!"
 
       - name: Health Check
         run: |
-          echo "🏥 Performing health check..."
-
-          # Get the EC2 instance IP
+          echo "🏥 Health check..."
           EC2_IP=$(aws ec2 describe-addresses \
             --filters "Name=tag:Name,Values=stepexplorer-api-eip" \
             --query 'Addresses[0].PublicIp' --output text)
 
-          # Wait for service to be ready
           sleep 30
 
-          # Health check
           for i in {1..5}; do
             if curl -f http://$EC2_IP/health; then
               echo "✅ Health check passed!"
-              break
+              exit 0
             else
-              echo "⏳ Waiting for service... (attempt $i/5)"
+              echo "⏳ Waiting... (attempt $i/5)"
               sleep 10
             fi
           done
+
+          echo "❌ Health check failed"
+          exit 1
