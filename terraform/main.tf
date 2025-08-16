@@ -179,6 +179,20 @@ resource "aws_security_group" "ec2_sg" {
   }
 }
 
+resource "aws_db_parameter_group" "postgres_no_ssl" {
+  family = "postgres15"
+  name   = "stepexplorer-postgres-no-ssl"
+
+  parameter {
+    name  = "rds.force_ssl"
+    value = "0"
+  }
+
+  tags = {
+    Name = "stepexplorer-postgres-no-ssl"
+  }
+}
+
 # Security Group for RDS
 resource "aws_security_group" "db_sg" {
   name_prefix = "stepexplorer-db-"
@@ -230,8 +244,10 @@ resource "aws_db_instance" "postgres" {
   username = var.db_username
   password = var.db_password
   
-  vpc_security_group_ids = [aws_security_group.db_sg.id]
-  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids  = [aws_security_group.db_sg.id]
+  db_subnet_group_name    = aws_db_subnet_group.main.name
+  parameter_group_name    = aws_db_parameter_group.postgres_no_ssl.name
+
   
   backup_retention_period = 7
   backup_window          = "03:00-04:00"
