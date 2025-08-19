@@ -21,6 +21,9 @@ RUN npm run build
 # Copy JavaScript drizzle config for production
 COPY drizzle.config.js ./
 
+# Copy migration files to build directory to match config
+COPY src/db/migrations/ ./build/db/migrations/
+
 # Remove dev dependencies after build
 RUN npm prune --production
 
