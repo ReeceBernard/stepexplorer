@@ -10,6 +10,7 @@
     "test": "jest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:prod": "drizzle-kit migrate --config=drizzle.config.js",
     "db:studio": "drizzle-kit studio"
   },
   "keywords": [],

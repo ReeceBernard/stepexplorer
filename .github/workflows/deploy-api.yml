@@ -81,7 +81,7 @@ jobs:
             
             # Run migrations and restart services
             echo "🗄️ Running migrations..."
-            docker-compose run --rm api npm run db:migrate
+            docker-compose run --rm api npm run db:migrate:prod
             
             echo "🔄 Restarting services..."
             docker-compose down
