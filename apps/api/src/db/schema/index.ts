@@ -1,6 +1,4 @@
-export * from "./achievements";
-export * from "./groups";
-export * from "./locations";
+export * from "./exploredAreas";
 export * from "./users";
 
 export * from "./relations";

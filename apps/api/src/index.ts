@@ -1,7 +1,8 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import userRoutes from "./routes/user/user";
+import locationRoutes from "./routes/locations";
+import userRoutes from "./routes/users/user";
 
 const app = express();
 const PORT = (process.env.PORT || 3001) as number;
@@ -40,6 +41,7 @@ app.get("/test", (_, res) => {
 
 // User routes
 app.use("/users", userRoutes);
+app.use("/locations", locationRoutes);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 StepExplorer API running on port ${PORT}`);
