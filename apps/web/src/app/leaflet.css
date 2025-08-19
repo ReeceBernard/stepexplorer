@@ -1,0 +1,35 @@
+/* Import Leaflet CSS */
+@import "leaflet/dist/leaflet.css";
+
+/* Custom map styles */
+.leaflet-container {
+  background: #1a1a1a !important;
+}
+
+/* Hide zoom controls since we position our own */
+.leaflet-control-zoom {
+  display: none;
+}
+
+/* Style our custom controls */
+.leaflet-control-container .leaflet-top.leaflet-left {
+  top: 80px;
+  left: 16px;
+}
+
+/* Fix marker icons */
+.leaflet-marker-icon {
+  margin-left: -12px !important;
+  margin-top: -12px !important;
+}
+
+/* Custom popup styles */
+.leaflet-popup-content-wrapper {
+  background: rgba(0, 0, 0, 0.8) !important;
+  color: white !important;
+  border-radius: 8px !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(0, 0, 0, 0.8) !important;
+}
