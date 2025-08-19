@@ -8,10 +8,9 @@ RUN apk add --no-cache curl
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
-COPY drizzle.config.ts ./
 
-# Use npm install instead of npm ci for flexibility
-RUN npm install
+# Install dependencies (including dev for build)
+RUN npm i
 
 # Copy source code
 COPY src/ ./src/
@@ -19,12 +18,15 @@ COPY src/ ./src/
 # Build the TypeScript code
 RUN npm run build
 
-# Install drizzle-kit for migrations
-RUN npm install drizzle-kit
+# Copy JavaScript drizzle config for production
+COPY drizzle.config.js ./
+
+# Remove dev dependencies after build
+RUN npm prune --production
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S stepexplorer -u 1001
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S stepexplorer -u 1001 -G nodejs
 
 # Change ownership of app directory
 RUN chown -R stepexplorer:nodejs /app
