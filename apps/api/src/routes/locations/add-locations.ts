@@ -1,3 +1,5 @@
+// api/locations.ts
+
 import { db } from "@/db/config";
 import { exploredAreas, users } from "@/db/schema";
 import { getExplorationMethod, H3_HELPERS } from "@/db/schema/constants";
@@ -13,7 +15,6 @@ const addLocationSchema = z.object({
 });
 
 const locationHeadersSchema = z.object({
-  // From request headers
   "x-user-id": z.string().uuid("Invalid user ID format"),
   "x-latitude": z.string().transform((val) => {
     const num = parseFloat(val);
@@ -34,7 +35,6 @@ const locationHeadersSchema = z.object({
 // POST /api/locations - Add single location point and explore hex
 router.post("/", async (req, res) => {
   try {
-    // Parse and validate headers
     const headerValidation = locationHeadersSchema.safeParse(req.headers);
     if (!headerValidation.success) {
       return res.status(400).json({
@@ -44,7 +44,6 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Parse and validate body
     const bodyValidation = addLocationSchema.safeParse(req.body);
     if (!bodyValidation.success) {
       return res.status(400).json({
@@ -61,7 +60,6 @@ router.post("/", async (req, res) => {
     } = headerValidation.data;
     const { speed, timeSpent } = bodyValidation.data;
 
-    // 1. Verify user exists
     const user = await db
       .select({ id: users.id })
       .from(users)
@@ -75,11 +73,11 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // 2. Convert coordinates to H3 hex
+    // Convert coordinates to H3 hex at the default resolution (now 9)
     const hexIndex = H3_HELPERS.coordsToHex(latitude, longitude);
     const explorationMethod = getExplorationMethod(speed);
 
-    // 3. Add explored area record (allows multiple visits to same hex)
+    // Add explored area record
     const newExploredArea = await db
       .insert(exploredAreas)
       .values({
@@ -94,19 +92,19 @@ router.post("/", async (req, res) => {
       })
       .returning();
 
-    // 4. Update user's current location
+    // Update user's current location with the new resolution 9 hex
     await db
       .update(users)
       .set({
         currentLatitude: latitude.toString(),
         currentLongitude: longitude.toString(),
-        currentHexRes8: hexIndex,
+        // The hexIndex is now guaranteed to be resolution 9
+        currentHexRes8: hexIndex, // actually 9 but lets wait to migrate
         lastLocationUpdate: new Date(),
         lastActive: new Date(),
       })
       .where(eq(users.id, userID));
 
-    // 5. Return success response
     res.json({
       success: true,
       exploredArea: newExploredArea[0],

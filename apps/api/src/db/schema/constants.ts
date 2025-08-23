@@ -1,3 +1,5 @@
+// db/schema/constants.ts
+
 import {
   cellToBoundary,
   cellToLatLng,
@@ -14,13 +16,15 @@ export type GeoPoint = {
 };
 
 export const HEX_CONFIG = {
-  PRIMARY_RESOLUTION: 8, // ~25m hexagons for main exploration
-  OVERVIEW_RESOLUTION: 7, // ~150m hexagons for zoomed out views
-  REGIONAL_RESOLUTION: 6, // ~1km hexagons for state/country views
+  // Use H3 resolution 9 as the new primary resolution
+  PRIMARY_RESOLUTION: 9,
+  OVERVIEW_RESOLUTION: 8, // Adjust overview resolution accordingly
+  REGIONAL_RESOLUTION: 7, // Adjust regional resolution accordingly
 
-  // Hex stats for distance calculations
-  RES8_DIAMETER_METERS: 25.5,
-  RES8_AREA_SQ_METERS: 737,
+  // Hex stats for resolution 9
+  // (Approximate values for H3 resolution 9)
+  RES9_DIAMETER_METERS: 9.3,
+  RES9_AREA_SQ_METERS: 259,
 } as const;
 
 // Exploration methods based on speed
@@ -51,14 +55,14 @@ export function getExplorationMethod(speedMph: number): string {
 
 // Calculate distance traveled based on hex visits
 export function calculateHexDistance(hexVisits: number): number {
-  // Distance = visits * average hex diameter
-  return hexVisits * HEX_CONFIG.RES8_DIAMETER_METERS;
+  // Use the new resolution 9 diameter
+  return hexVisits * HEX_CONFIG.RES9_DIAMETER_METERS;
 }
 
 // Calculate area explored based on unique hex count
 export function calculateHexArea(uniqueHexCount: number): number {
-  // Total area = unique hexes * average hex area
-  return uniqueHexCount * HEX_CONFIG.RES8_AREA_SQ_METERS;
+  // Use the new resolution 9 area
+  return uniqueHexCount * HEX_CONFIG.RES9_AREA_SQ_METERS;
 }
 
 // ============================================================================
@@ -70,9 +74,9 @@ export const H3_HELPERS = {
   coordsToHex: (
     lat: number,
     lng: number,
+    // The default resolution is now 9
     resolution: number = HEX_CONFIG.PRIMARY_RESOLUTION
   ): string => {
-    // Validate coordinates
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       throw new Error(`Invalid coordinates: lat=${lat}, lng=${lng}`);
     }
@@ -96,9 +100,8 @@ export const H3_HELPERS = {
     }
 
     try {
-      // cellToBoundary returns [lat, lng] pairs, we need [lng, lat] for GeoJSON
-      const boundary = cellToBoundary(hexId, true); // true = counterclockwise
-      return boundary.map((coord) => [coord[1], coord[0]]); // Swap to [lng, lat] for GeoJSON
+      const boundary = cellToBoundary(hexId, true);
+      return boundary.map((coord) => [coord[1], coord[0]]);
     } catch (error) {
       console.error("❌ Error getting hex boundary:", hexId, error);
       return [];
@@ -120,7 +123,7 @@ export const H3_HELPERS = {
     }
   },
 
-  // Get neighboring hexes at specified ring distance (just the ring, not including center)
+  // Get neighboring hexes at specified ring distance
   getHexRing: (hexId: string, ringSize: number): string[] => {
     if (!H3_HELPERS.isValidHex(hexId)) {
       return [];
@@ -129,14 +132,11 @@ export const H3_HELPERS = {
     try {
       if (ringSize === 0) return [hexId];
 
-      // Get all hexes within ringSize distance
       const allWithinRing = gridDisk(hexId, ringSize);
 
       if (ringSize === 1) {
-        // For ring 1, exclude just the center
         return allWithinRing.filter((hex) => hex !== hexId);
       } else {
-        // For ring > 1, exclude all hexes within ringSize - 1
         const innerHexes = new Set(gridDisk(hexId, ringSize - 1));
         return allWithinRing.filter((hex) => !innerHexes.has(hex));
       }
@@ -146,7 +146,7 @@ export const H3_HELPERS = {
     }
   },
 
-  // Get all hexes within specified distance (includes center) - simple gridDisk
+  // Get all hexes within specified distance
   getHexesWithinDistance: (hexId: string, distance: number): string[] => {
     if (!H3_HELPERS.isValidHex(hexId)) {
       return [];
@@ -189,12 +189,9 @@ export const H3_HELPERS = {
     }
 
     try {
-      // Use h3-js built-in validation if available
       if (typeof isValidCell === "function") {
         return isValidCell(hexId);
       }
-
-      // Fallback: try to get the center coordinates - if this succeeds, it's valid
       cellToLatLng(hexId);
       return true;
     } catch {
@@ -208,9 +205,9 @@ export const H3_HELPERS = {
     maxLat: number,
     minLng: number,
     maxLng: number,
+    // The default resolution is now 9
     resolution: number = HEX_CONFIG.PRIMARY_RESOLUTION
   ): string[] => {
-    // Validate bounding box coordinates
     if (
       minLat < -90 ||
       maxLat > 90 ||
@@ -224,7 +221,7 @@ export const H3_HELPERS = {
 
     try {
       const hexes = new Set<string>();
-      const latStep = (maxLat - minLat) / 20; // Sample 20x20 grid
+      const latStep = (maxLat - minLat) / 20;
       const lngStep = (maxLng - minLng) / 20;
 
       for (let lat = minLat; lat <= maxLat; lat += latStep) {
@@ -254,7 +251,6 @@ export const H3_HELPERS = {
 // UTILITY FUNCTIONS FOR TESTING
 // ============================================================================
 
-// Test if coordinates are within NYC bounds
 export function isWithinNYC(lat: number, lng: number): boolean {
   return (
     lat >= NYC_BOUNDS.minLat &&
@@ -264,7 +260,6 @@ export function isWithinNYC(lat: number, lng: number): boolean {
   );
 }
 
-// Get some sample NYC locations for testing
 export const NYC_TEST_LOCATIONS = {
   timesSquare: { lat: 40.7589, lng: -73.9851 },
   centralPark: { lat: 40.7812, lng: -73.9665 },

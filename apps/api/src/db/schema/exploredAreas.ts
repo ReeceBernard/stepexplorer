@@ -15,7 +15,7 @@ export const exploredAreas = pgTable(
     userID: uuid("user_id")
       .references(() => users.id)
       .notNull(),
-    hexIndex: varchar("hex_index", { length: 16 }).notNull(), // H3 index at resolution 8
+    hexIndex: varchar("hex_index", { length: 16 }).notNull(), // H3 index at resolution 9
     visitedAt: timestamp("visited_at").defaultNow().notNull(),
     explorationMethod: varchar("exploration_method", { length: 20 }).notNull(),
     speed: decimal("speed", { precision: 5, scale: 2 }).notNull(),

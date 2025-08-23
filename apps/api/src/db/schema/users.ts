@@ -19,6 +19,7 @@ export const users = pgTable(
     currentLatitude: decimal("current_latitude", { precision: 10, scale: 8 }),
     currentLongitude: decimal("current_longitude", { precision: 11, scale: 8 }),
     currentHexRes8: varchar("current_hex_res8", { length: 16 }),
+    currentHex: varchar("current_hex", { length: 16 }),
     lastLocationUpdate: timestamp("last_location_update"),
     // Optional: keep traditional distance if needed for display
     estimatedDistance: decimal("estimated_distance", {
