@@ -36,11 +36,6 @@ jobs:
       - name: Deploy to EC2
         run: |
           echo "🚀 Deploying to EC2..."
-          # Cleanup for new deploy 
-          docker system prune -a -f --volumes
-          docker container prune -f
-          docker image prune -a -f
-          docker volume prune -f
 
           # Get the EC2 instance IP
           EC2_IP=$(aws ec2 describe-addresses \
@@ -60,18 +55,14 @@ jobs:
             set -e
             echo "🚀 Starting deployment..."
             
-            # Setup app directory as git repo (one-time setup)
-            if [ ! -d "/home/ec2-user/stepexplorer/.git" ]; then
-              echo "📦 Setting up application repository..."
-              rm -rf /home/ec2-user/stepexplorer
-              git clone https://github.com/reecebernard/stepexplorer.git /home/ec2-user/stepexplorer
-            else
-              echo "📦 Updating application code..."
-              cd /home/ec2-user/stepexplorer
-              git pull origin main
-            fi
-            
+            echo "📦 Updating application code..."
             cd /home/ec2-user/stepexplorer
+            # Cleanup for new deploy 
+            docker system prune -a -f --volumes
+            docker container prune -f
+            docker image prune -a -f
+            docker volume prune -f
+            git pull origin main
             
             # Create environment file
             cat > .env << EOF
