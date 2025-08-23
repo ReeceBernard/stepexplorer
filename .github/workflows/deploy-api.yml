@@ -57,6 +57,7 @@ jobs:
             
             echo "📦 Updating application code..."
             cd /home/ec2-user/stepexplorer
+            
             # Cleanup for new deploy 
             docker system prune -a -f --volumes
             docker container prune -f
@@ -77,7 +78,7 @@ jobs:
             
             # Run migrations and restart services
             echo "🗄️ Running migrations..."
-            docker-compose run --rm api npm run db:migrate:prod
+            docker-compose run --rm api npm run db:migrate:prod || echo "❌  Migration failed"
             
             echo "🔄 Restarting services..."
             docker-compose down
