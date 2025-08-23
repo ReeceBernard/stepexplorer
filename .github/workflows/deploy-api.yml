@@ -36,6 +36,11 @@ jobs:
       - name: Deploy to EC2
         run: |
           echo "🚀 Deploying to EC2..."
+          # Cleanup for new deploy 
+          docker system prune -a -f --volumes
+          docker container prune -f
+          docker image prune -a -f
+          docker volume prune -f
 
           # Get the EC2 instance IP
           EC2_IP=$(aws ec2 describe-addresses \
@@ -87,8 +92,6 @@ jobs:
             docker-compose down
             docker-compose up -d
             
-            # Cleanup
-            docker image prune -f
             echo "✅ Deployment completed!"
           ENDSSH
 
