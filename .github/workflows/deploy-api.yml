@@ -76,13 +76,14 @@ jobs:
             aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 130046065749.dkr.ecr.us-east-1.amazonaws.com
             docker-compose pull api
             
-            # Run migrations and restart services
-            echo "🗄️ Running migrations..."
-            docker-compose run --rm api npm run db:migrate:prod || echo "❌  Migration failed"
-            
+            # Restart services with the new image
             echo "🔄 Restarting services..."
             docker-compose down
             docker-compose up -d
+            
+            # Run migrations inside the newly running container
+            echo "🗄️ Running migrations..."
+            docker-compose exec api npm run db:migrate:prod
             
             echo "✅ Deployment completed!"
           ENDSSH
