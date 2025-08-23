@@ -35,7 +35,7 @@ RUN addgroup -g 1001 -S nodejs && \
 RUN chown -R stepexplorer:nodejs /app
 USER stepexplorer
 
-EXPOSE 3000
+EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
