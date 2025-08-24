@@ -1,6 +1,6 @@
 {
-  "name": "Exploration Map",
-  "short_name": "ExploreMap",
+  "name": "Step Explorer",
+  "short_name": "StepExplorer",
   "description": "Track and explore your world with an interactive map",
   "start_url": "/",
   "display": "fullscreen",
