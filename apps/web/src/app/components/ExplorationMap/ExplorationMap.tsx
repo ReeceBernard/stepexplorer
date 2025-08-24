@@ -264,7 +264,13 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
   }
 
   return (
-    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-gray-900">
+    <div
+      className="fixed inset-0 w-screen overflow-hidden bg-gray-900"
+      style={{
+        height: "100dvh",
+        width: "100vw",
+      }}
+    >
       {/* Map Container - Fixed positioning to prevent scrolling */}
       <div className="absolute inset-0 w-full h-full">
         <MapContainer
@@ -277,7 +283,15 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
           touchZoom={true}
           doubleClickZoom={true}
           keyboard={true}
-          style={{ height: "100vh", width: "100vw" }}
+          style={{
+            height: "100%",
+            width: "100%",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
         >
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
