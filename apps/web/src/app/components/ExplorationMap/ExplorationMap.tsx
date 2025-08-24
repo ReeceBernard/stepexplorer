@@ -320,8 +320,11 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
       {/* Mobile Layout */}
       <div className="lg:hidden">
         {/* Mobile Top Stats - Fixed positioning with safe area */}
-        <div className="fixed top-0 left-0 right-0 z-[1001] pt-safe-area-inset-top">
-          <div className="flex justify-center pt-4 px-4">
+        <div className="fixed top-0 left-0 right-0 z-[1001]">
+          <div
+            className="flex justify-center pt-4 px-4"
+            style={{ paddingTop: `max(1rem, env(safe-area-inset-top))` }}
+          >
             <Card className="bg-black/90 backdrop-blur-sm border-gray-700 text-white">
               <CardContent className="px-4 py-2">
                 {exploredData && (
@@ -347,8 +350,11 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
         </div>
 
         {/* Mobile Map Mode Selector - Fixed positioning with safe area */}
-        <div className="fixed top-0 right-0 z-[1001] pt-safe-area-inset-top">
-          <div className="pt-4 pr-4">
+        <div className="fixed top-0 right-0 z-[1001]">
+          <div
+            className="pt-4 pr-4"
+            style={{ paddingTop: `max(1rem, env(safe-area-inset-top))` }}
+          >
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="bg-black/90 backdrop-blur-sm border border-gray-700 text-white hover:bg-gray-800 p-2">
@@ -389,8 +395,13 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
         </div>
 
         {/* Mobile Bottom Controls - Fixed positioning with safe area */}
-        <div className="fixed bottom-0 left-0 right-0 z-[1001] pb-safe-area-inset-bottom">
-          <div className="flex justify-center pb-6 px-4">
+        <div className="fixed bottom-0 left-0 right-0 z-[1001]">
+          <div
+            className="flex justify-center pb-6 px-4"
+            style={{
+              paddingBottom: `max(1.5rem, env(safe-area-inset-bottom))`,
+            }}
+          >
             <Button
               onClick={centerOnUser}
               variant={isFollowing ? "default" : "outline"}
