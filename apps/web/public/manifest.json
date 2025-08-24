@@ -3,9 +3,9 @@
   "short_name": "StepExplorer",
   "description": "Track and explore your world with an interactive map",
   "start_url": "/",
-  "display": "fullscreen",
+  "display": "standalone",
   "background_color": "#111827",
-  "theme_color": "#1f2937",
+  "theme_color": "#111827",
   "orientation": "portrait-primary",
   "scope": "/",
   "categories": ["navigation", "travel", "utilities"],
@@ -33,7 +33,7 @@
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/apple-touch-icon.png",
