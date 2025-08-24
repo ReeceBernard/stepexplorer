@@ -23,8 +23,10 @@ export const metadata: Metadata = {
     title: "StepExplorer",
   },
   icons: {
-    apple: "/icons/apple-touch-icon-180x180.png",
+    apple: "/icons/apple-touch-icon.png",
     icon: [
+      { url: "/icons/icon-16x16.png", sizes: "16x16" },
+      { url: "/icons/icon-32x32.png", sizes: "32x32" },
       { url: "/icons/icon-192x192.png", sizes: "192x192" },
       { url: "/icons/icon-512x512.png", sizes: "512x512" },
     ],
