@@ -203,9 +203,6 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
         });
 
         if (response.ok) {
-          const result = await response.json();
-          console.log("Location exploration result:", result);
-
           // Always reload explored areas after sending location
           // This ensures we get the latest hexagon data
           await loadExploredAreas();

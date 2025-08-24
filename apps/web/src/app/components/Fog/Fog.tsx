@@ -64,11 +64,6 @@ export default function Fog({ exploredHexes }: FogProps) {
     if (!map) return;
 
     spatialIndexRef.current = new H3SpatialIndex(exploredHexes);
-    console.log(
-      "Built H3 spatial index for",
-      exploredHexes.length,
-      "resolution 9 hexes"
-    );
 
     const canvas = document.createElement("canvas");
     canvas.style.position = "absolute";
@@ -121,10 +116,6 @@ export default function Fog({ exploredHexes }: FogProps) {
       const viewBounds = map.getBounds().pad(0.1);
 
       const visibleHexes = spatialIndexRef.current.getHexesInBounds(viewBounds);
-
-      console.log(
-        `Rendering ${visibleHexes.length} hexes with fade progress: ${fadeProgress}`
-      );
 
       if (fadeProgress < 1) {
         const tempCanvas = document.createElement("canvas");
