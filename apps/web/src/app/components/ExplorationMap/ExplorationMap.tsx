@@ -130,18 +130,6 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
   const [isFollowing, setIsFollowing] = useState(true);
   const [mapMode, setMapMode] = useState<MapMode>("personal");
 
-  // Add viewport height state
-  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
-
-  // Simple viewport height fix - calculate once on load
-  useEffect(() => {
-    const actualHeight = window.visualViewport
-      ? window.visualViewport.height
-      : window.innerHeight;
-
-    setViewportHeight(actualHeight);
-  }, []);
-
   // Get user's current location from GPS
   useEffect(() => {
     if (navigator.geolocation) {
@@ -215,6 +203,9 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
         });
 
         if (response.ok) {
+          const result = await response.json();
+          console.log("Location exploration result:", result);
+
           // Always reload explored areas after sending location
           // This ensures we get the latest hexagon data
           await loadExploredAreas();
@@ -276,193 +267,131 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
   }
 
   return (
-    <div
-      className="fixed inset-0 w-screen overflow-hidden bg-gray-900"
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: "100vw",
-        height: `${viewportHeight}px`, // Use calculated height instead of 100vh
-        minHeight: `${viewportHeight}px`,
-        maxHeight: `${viewportHeight}px`,
-        backgroundColor: "#111827",
-        overflow: "hidden",
-        zIndex: 0,
-      }}
-    >
-      {/* Map Container - Fixed positioning to prevent scrolling */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: "100%",
-          height: "100%",
-          backgroundColor: "#111827",
-        }}
+    <div className="h-screen relative">
+      {/* Map Container */}
+      <MapContainer
+        center={userLocation}
+        zoom={16}
+        className="h-full w-full"
+        zoomControl={false}
       >
-        <MapContainer
-          center={userLocation}
-          zoom={16}
-          className="w-full h-full"
-          zoomControl={false}
-          scrollWheelZoom={true}
-          dragging={true}
-          touchZoom={true}
-          doubleClickZoom={true}
-          keyboard={true}
-          style={{
-            height: "100%",
-            width: "100%",
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          }}
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+        />
+
+        <Marker
+          position={userLocation}
+          icon={
+            new Icon({
+              iconUrl:
+                "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23ef4444'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='3' fill='white'/%3E%3C/svg%3E",
+              iconSize: [24, 24],
+              iconAnchor: [12, 12],
+            })
+          }
         >
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          />
+          <Popup>
+            <div className="text-center">
+              <p className="font-semibold">You are here!</p>
+              <p className="text-sm text-gray-600">
+                {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+              </p>
+            </div>
+          </Popup>
+        </Marker>
 
-          <Marker
-            position={userLocation}
-            icon={
-              new Icon({
-                iconUrl:
-                  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23ef4444'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='3' fill='white'/%3E%3C/svg%3E",
-                iconSize: [24, 24],
-                iconAnchor: [12, 12],
-              })
-            }
-          >
-            <Popup>
-              <div className="text-center">
-                <p className="font-semibold">You are here!</p>
-                <p className="text-sm text-gray-600">
-                  {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
-                </p>
-              </div>
-            </Popup>
-          </Marker>
+        <MapController
+          userLocation={userLocation}
+          isFollowing={isFollowing}
+          onToggleFollow={() => setIsFollowing(!isFollowing)}
+        />
 
-          <MapController
-            userLocation={userLocation}
-            isFollowing={isFollowing}
-            onToggleFollow={() => setIsFollowing(!isFollowing)}
-          />
-
-          {/* Fog Effect */}
-          {exploredData && (
-            <Fog exploredHexes={exploredData.hexagons.features} />
-          )}
-        </MapContainer>
-      </div>
+        {/* Fog Effect */}
+        {exploredData && <Fog exploredHexes={exploredData.hexagons.features} />}
+      </MapContainer>
 
       {/* Mobile Layout */}
       <div className="lg:hidden">
-        {/* Mobile Top Stats - Fixed positioning with safe area */}
-        <div className="fixed top-0 left-0 right-0 z-[1001]">
-          <div
-            className="flex justify-center pt-4 px-4"
-            style={{ paddingTop: `max(1rem, env(safe-area-inset-top))` }}
-          >
-            <Card className="bg-black/90 backdrop-blur-sm border-gray-700 text-white">
-              <CardContent className="px-4 py-2">
-                {exploredData && (
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4 text-blue-400" />
-                      <span className="font-medium">
-                        {exploredData.stats.uniqueHexes}
-                      </span>
-                      <span className="text-xs text-gray-400">areas</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium">
-                        {exploredData.stats.estimatedDistanceKm}
-                      </span>
-                      <span className="text-xs text-gray-400">km</span>
-                    </div>
+        {/* Mobile Top Stats - Clean and Clear */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1001]">
+          <Card className="bg-black/90 backdrop-blur-sm border-gray-700 text-white">
+            <CardContent className="px-4 py-2">
+              {exploredData && (
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4 text-blue-400" />
+                    <span className="font-medium">
+                      {exploredData.stats.uniqueHexes}
+                    </span>
+                    <span className="text-xs text-gray-400">areas</span>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">
+                      {exploredData.stats.estimatedDistanceKm}
+                    </span>
+                    <span className="text-xs text-gray-400">km</span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Mobile Map Mode Selector - Fixed positioning with safe area */}
-        <div className="fixed top-0 right-0 z-[1001]">
-          <div
-            className="pt-4 pr-4"
-            style={{ paddingTop: `max(1rem, env(safe-area-inset-top))` }}
-          >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="bg-black/90 backdrop-blur-sm border border-gray-700 text-white hover:bg-gray-800 p-2">
-                  {mapMode === "personal" ? (
-                    <User className="h-4 w-4" />
-                  ) : (
-                    <Users className="h-4 w-4" />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="bg-black/90 backdrop-blur-sm border-gray-700 text-white"
-              >
-                <DropdownMenuItem
-                  onClick={() => setMapMode("personal")}
-                  className="flex items-center gap-2 hover:bg-gray-800"
-                >
+        {/* Mobile Map Mode Selector - Top Right */}
+        <div className="absolute top-4 right-4 z-[1001]">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-black/90 backdrop-blur-sm border border-gray-700 text-white hover:bg-gray-800 p-2">
+                {mapMode === "personal" ? (
                   <User className="h-4 w-4" />
-                  My Exploration
-                  {mapMode === "personal" && (
-                    <div className="ml-auto w-2 h-2 bg-blue-400 rounded-full" />
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setMapMode("community")}
-                  className="flex items-center gap-2 hover:bg-gray-800"
-                >
+                ) : (
                   <Users className="h-4 w-4" />
-                  Community Map
-                  {mapMode === "community" && (
-                    <div className="ml-auto w-2 h-2 bg-blue-400 rounded-full" />
-                  )}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="bg-black/90 backdrop-blur-sm border-gray-700 text-white"
+            >
+              <DropdownMenuItem
+                onClick={() => setMapMode("personal")}
+                className="flex items-center gap-2 hover:bg-gray-800"
+              >
+                <User className="h-4 w-4" />
+                My Exploration
+                {mapMode === "personal" && (
+                  <div className="ml-auto w-2 h-2 bg-blue-400 rounded-full" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setMapMode("community")}
+                className="flex items-center gap-2 hover:bg-gray-800"
+              >
+                <Users className="h-4 w-4" />
+                Community Map
+                {mapMode === "community" && (
+                  <div className="ml-auto w-2 h-2 bg-blue-400 rounded-full" />
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        {/* Mobile Bottom Controls - Fixed positioning with safe area */}
-        <div className="fixed bottom-0 left-0 right-0 z-[1001]">
-          <div
-            className="flex justify-center pb-6 px-4"
-            style={{
-              paddingBottom: `max(1.5rem, env(safe-area-inset-bottom))`,
-            }}
+        {/* Mobile Bottom Controls - Just Follow Me */}
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1001]">
+          <Button
+            onClick={centerOnUser}
+            variant={isFollowing ? "default" : "outline"}
+            className={`${
+              isFollowing
+                ? "bg-gray-700 hover:bg-gray-600"
+                : "bg-transparent border-gray-600 hover:bg-gray-800"
+            } text-white rounded-full h-12 w-12 p-0 flex items-center justify-center shadow-lg bg-black/90 backdrop-blur-sm border border-gray-700`}
+            title="Center map on my location"
           >
-            <Button
-              onClick={centerOnUser}
-              variant={isFollowing ? "default" : "outline"}
-              className={`${
-                isFollowing
-                  ? "bg-gray-700 hover:bg-gray-600"
-                  : "bg-transparent border-gray-600 hover:bg-gray-800"
-              } text-white rounded-full h-12 w-12 p-0 flex items-center justify-center shadow-lg bg-black/90 backdrop-blur-sm border border-gray-700`}
-              title="Center map on my location"
-            >
-              <Navigation className="h-5 w-5" />
-            </Button>
-          </div>
+            <Navigation className="h-5 w-5" />
+          </Button>
         </div>
       </div>
 
