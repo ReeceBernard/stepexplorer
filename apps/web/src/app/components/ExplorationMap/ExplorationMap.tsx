@@ -267,12 +267,31 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
     <div
       className="fixed inset-0 w-screen overflow-hidden bg-gray-900"
       style={{
-        height: "100dvh",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         width: "100vw",
+        height: "100vh",
+        minHeight: "100vh",
+        maxHeight: "100vh",
+        backgroundColor: "#111827",
+        overflow: "hidden",
+        zIndex: 0,
       }}
     >
       {/* Map Container - Fixed positioning to prevent scrolling */}
-      <div className="absolute inset-0 w-full h-full">
+      <div  style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#111827',
+      }}>
         <MapContainer
           center={userLocation}
           zoom={16}
@@ -414,7 +433,7 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
           <div
             className="flex justify-center pb-6 px-4"
             style={{
-              paddingBottom: `max(0rem, env(safe-area-inset-bottom))`,
+              paddingBottom: `max(1.5rem, env(safe-area-inset-bottom))`,
             }}
           >
             <Button
