@@ -130,6 +130,18 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
   const [isFollowing, setIsFollowing] = useState(true);
   const [mapMode, setMapMode] = useState<MapMode>("personal");
 
+  // Add viewport height state
+  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+
+  // Simple viewport height fix - calculate once on load
+  useEffect(() => {
+    const actualHeight = window.visualViewport
+      ? window.visualViewport.height
+      : window.innerHeight;
+
+    setViewportHeight(actualHeight);
+  }, []);
+
   // Get user's current location from GPS
   useEffect(() => {
     if (navigator.geolocation) {
@@ -273,9 +285,9 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
         right: 0,
         bottom: 0,
         width: "100vw",
-        height: `${window.innerHeight}px`,
-        minHeight: `${window.innerHeight}px`,
-        maxHeight: `${window.innerHeight}px`,
+        height: `${viewportHeight}px`, // Use calculated height instead of 100vh
+        minHeight: `${viewportHeight}px`,
+        maxHeight: `${viewportHeight}px`,
         backgroundColor: "#111827",
         overflow: "hidden",
         zIndex: 0,
@@ -290,9 +302,7 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
           right: 0,
           bottom: 0,
           width: "100%",
-          height: `${window.innerHeight}px`,
-          minHeight: `${window.innerHeight}px`,
-          maxHeight: `${window.innerHeight}px`,
+          height: "100%",
           backgroundColor: "#111827",
         }}
       >
