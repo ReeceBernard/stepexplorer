@@ -414,7 +414,7 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
           <div
             className="flex justify-center pb-6 px-4"
             style={{
-              paddingBottom: `max(1.5rem, env(safe-area-inset-bottom))`,
+              paddingBottom: `max(.5rem, env(safe-area-inset-bottom))`,
             }}
           >
             <Button
