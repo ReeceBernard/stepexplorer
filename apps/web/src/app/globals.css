@@ -22,8 +22,6 @@
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
   --ring: 222.2 84% 4.9%;
-  --safe-area-inset-top: env(safe-area-inset-top);
-  --safe-area-inset-bottom: env(safe-area-inset-bottom);
 }
 
 .dark {
@@ -60,12 +58,8 @@
   html,
   body {
     height: 100vh !important;
-    height: -webkit-fill-available !important;
     overflow: hidden;
-  }
-
-  body {
-    padding-bottom: env(safe-area-inset-bottom);
-    margin-bottom: calc(-1 * env(safe-area-inset-bottom));
+    margin: 0 !important;
+    padding: 0 !important;
   }
 }
