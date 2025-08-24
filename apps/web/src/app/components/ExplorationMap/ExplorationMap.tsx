@@ -273,25 +273,29 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
         right: 0,
         bottom: 0,
         width: "100vw",
-        height: "100vh",
-        minHeight: "100vh",
-        maxHeight: "100vh",
+        height: `${window.innerHeight}px`,
+        minHeight: `${window.innerHeight}px`,
+        maxHeight: `${window.innerHeight}px`,
         backgroundColor: "#111827",
         overflow: "hidden",
         zIndex: 0,
       }}
     >
       {/* Map Container - Fixed positioning to prevent scrolling */}
-      <div  style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#111827',
-      }}>
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: "100%",
+          height: `${window.innerHeight}px`,
+          minHeight: `${window.innerHeight}px`,
+          maxHeight: `${window.innerHeight}px`,
+          backgroundColor: "#111827",
+        }}
+      >
         <MapContainer
           center={userLocation}
           zoom={16}
