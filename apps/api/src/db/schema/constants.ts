@@ -18,8 +18,6 @@ export type GeoPoint = {
 export const HEX_CONFIG = {
   // Use H3 resolution 9 as the new primary resolution
   PRIMARY_RESOLUTION: 9,
-  OVERVIEW_RESOLUTION: 8, // Adjust overview resolution accordingly
-  REGIONAL_RESOLUTION: 7, // Adjust regional resolution accordingly
 
   // Hex stats for resolution 9
   // (Approximate values for H3 resolution 9)
@@ -80,7 +78,6 @@ export const H3_HELPERS = {
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       throw new Error(`Invalid coordinates: lat=${lat}, lng=${lng}`);
     }
-
     try {
       return latLngToCell(lat, lng, resolution);
     } catch (error) {

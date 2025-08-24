@@ -267,131 +267,146 @@ export default function ExplorationMap({ user }: ExplorationMapProps) {
   }
 
   return (
-    <div className="h-screen relative">
-      {/* Map Container */}
-      <MapContainer
-        center={userLocation}
-        zoom={16}
-        className="h-full w-full"
-        zoomControl={false}
-      >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-        />
-
-        <Marker
-          position={userLocation}
-          icon={
-            new Icon({
-              iconUrl:
-                "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23ef4444'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='3' fill='white'/%3E%3C/svg%3E",
-              iconSize: [24, 24],
-              iconAnchor: [12, 12],
-            })
-          }
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden">
+      {/* Map Container - Fixed positioning to prevent scrolling */}
+      <div className="absolute inset-0 w-full h-full">
+        <MapContainer
+          center={userLocation}
+          zoom={16}
+          className="w-full h-full"
+          zoomControl={false}
+          scrollWheelZoom={true}
+          dragging={true}
+          touchZoom={true}
+          doubleClickZoom={true}
+          keyboard={true}
         >
-          <Popup>
-            <div className="text-center">
-              <p className="font-semibold">You are here!</p>
-              <p className="text-sm text-gray-600">
-                {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
-              </p>
-            </div>
-          </Popup>
-        </Marker>
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          />
 
-        <MapController
-          userLocation={userLocation}
-          isFollowing={isFollowing}
-          onToggleFollow={() => setIsFollowing(!isFollowing)}
-        />
+          <Marker
+            position={userLocation}
+            icon={
+              new Icon({
+                iconUrl:
+                  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23ef4444'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='3' fill='white'/%3E%3C/svg%3E",
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+              })
+            }
+          >
+            <Popup>
+              <div className="text-center">
+                <p className="font-semibold">You are here!</p>
+                <p className="text-sm text-gray-600">
+                  {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
 
-        {/* Fog Effect */}
-        {exploredData && <Fog exploredHexes={exploredData.hexagons.features} />}
-      </MapContainer>
+          <MapController
+            userLocation={userLocation}
+            isFollowing={isFollowing}
+            onToggleFollow={() => setIsFollowing(!isFollowing)}
+          />
+
+          {/* Fog Effect */}
+          {exploredData && (
+            <Fog exploredHexes={exploredData.hexagons.features} />
+          )}
+        </MapContainer>
+      </div>
 
       {/* Mobile Layout */}
       <div className="lg:hidden">
-        {/* Mobile Top Stats - Clean and Clear */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1001]">
-          <Card className="bg-black/90 backdrop-blur-sm border-gray-700 text-white">
-            <CardContent className="px-4 py-2">
-              {exploredData && (
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4 text-blue-400" />
-                    <span className="font-medium">
-                      {exploredData.stats.uniqueHexes}
-                    </span>
-                    <span className="text-xs text-gray-400">areas</span>
+        {/* Mobile Top Stats - Fixed positioning with safe area */}
+        <div className="fixed top-0 left-0 right-0 z-[1001] pt-safe-area-inset-top">
+          <div className="flex justify-center pt-4 px-4">
+            <Card className="bg-black/90 backdrop-blur-sm border-gray-700 text-white">
+              <CardContent className="px-4 py-2">
+                {exploredData && (
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4 text-blue-400" />
+                      <span className="font-medium">
+                        {exploredData.stats.uniqueHexes}
+                      </span>
+                      <span className="text-xs text-gray-400">areas</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">
+                        {exploredData.stats.estimatedDistanceKm}
+                      </span>
+                      <span className="text-xs text-gray-400">km</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="font-medium">
-                      {exploredData.stats.estimatedDistanceKm}
-                    </span>
-                    <span className="text-xs text-gray-400">km</span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
-        {/* Mobile Map Mode Selector - Top Right */}
-        <div className="absolute top-4 right-4 z-[1001]">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="bg-black/90 backdrop-blur-sm border border-gray-700 text-white hover:bg-gray-800 p-2">
-                {mapMode === "personal" ? (
+        {/* Mobile Map Mode Selector - Fixed positioning with safe area */}
+        <div className="fixed top-0 right-0 z-[1001] pt-safe-area-inset-top">
+          <div className="pt-4 pr-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-black/90 backdrop-blur-sm border border-gray-700 text-white hover:bg-gray-800 p-2">
+                  {mapMode === "personal" ? (
+                    <User className="h-4 w-4" />
+                  ) : (
+                    <Users className="h-4 w-4" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="bg-black/90 backdrop-blur-sm border-gray-700 text-white"
+              >
+                <DropdownMenuItem
+                  onClick={() => setMapMode("personal")}
+                  className="flex items-center gap-2 hover:bg-gray-800"
+                >
                   <User className="h-4 w-4" />
-                ) : (
+                  My Exploration
+                  {mapMode === "personal" && (
+                    <div className="ml-auto w-2 h-2 bg-blue-400 rounded-full" />
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setMapMode("community")}
+                  className="flex items-center gap-2 hover:bg-gray-800"
+                >
                   <Users className="h-4 w-4" />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="bg-black/90 backdrop-blur-sm border-gray-700 text-white"
-            >
-              <DropdownMenuItem
-                onClick={() => setMapMode("personal")}
-                className="flex items-center gap-2 hover:bg-gray-800"
-              >
-                <User className="h-4 w-4" />
-                My Exploration
-                {mapMode === "personal" && (
-                  <div className="ml-auto w-2 h-2 bg-blue-400 rounded-full" />
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setMapMode("community")}
-                className="flex items-center gap-2 hover:bg-gray-800"
-              >
-                <Users className="h-4 w-4" />
-                Community Map
-                {mapMode === "community" && (
-                  <div className="ml-auto w-2 h-2 bg-blue-400 rounded-full" />
-                )}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  Community Map
+                  {mapMode === "community" && (
+                    <div className="ml-auto w-2 h-2 bg-blue-400 rounded-full" />
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
-        {/* Mobile Bottom Controls - Just Follow Me */}
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1001]">
-          <Button
-            onClick={centerOnUser}
-            variant={isFollowing ? "default" : "outline"}
-            className={`${
-              isFollowing
-                ? "bg-gray-700 hover:bg-gray-600"
-                : "bg-transparent border-gray-600 hover:bg-gray-800"
-            } text-white rounded-full h-12 w-12 p-0 flex items-center justify-center shadow-lg bg-black/90 backdrop-blur-sm border border-gray-700`}
-            title="Center map on my location"
-          >
-            <Navigation className="h-5 w-5" />
-          </Button>
+        {/* Mobile Bottom Controls - Fixed positioning with safe area */}
+        <div className="fixed bottom-0 left-0 right-0 z-[1001] pb-safe-area-inset-bottom">
+          <div className="flex justify-center pb-6 px-4">
+            <Button
+              onClick={centerOnUser}
+              variant={isFollowing ? "default" : "outline"}
+              className={`${
+                isFollowing
+                  ? "bg-gray-700 hover:bg-gray-600"
+                  : "bg-transparent border-gray-600 hover:bg-gray-800"
+              } text-white rounded-full h-12 w-12 p-0 flex items-center justify-center shadow-lg bg-black/90 backdrop-blur-sm border border-gray-700`}
+              title="Center map on my location"
+            >
+              <Navigation className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </div>
 

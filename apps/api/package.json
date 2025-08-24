@@ -19,10 +19,11 @@
   "type": "commonjs",
   "dependencies": {
     "cors": "^2.8.5",
+    "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.4",
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.1",
-    "h3-js": "^4.2.0",
+    "h3-js": "^4.3.0",
     "helmet": "^8.1.0",
     "ioredis": "^5.7.0",
     "jest": "^30.0.5",
@@ -33,7 +34,6 @@
     "socket.io": "^4.8.1",
     "supertest": "^7.1.4",
     "ts-jest": "^29.4.1",
-    "drizzle-kit": "^0.31.4",
     "zod": "^4.0.17"
   },
   "devDependencies": {
